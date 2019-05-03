@@ -1,4 +1,5 @@
 ﻿using HistoryService.DB;
+using HistoryService.OptionModels;
 using HistoryService.Services;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
@@ -14,7 +15,7 @@ namespace HistoryService
 {
     public class Startup
     {
-        public Startup(IConfiguration configuration, IHostingEnvironment env)
+        public Startup(IConfiguration configuration)
         {
             Configuration = configuration;
         }
@@ -35,10 +36,9 @@ namespace HistoryService
             services.AddDbContext<HistoryContext>
                 (options => options.UseSqlServer(Configuration.GetConnectionString("HistoryDatabase")));
 
-            //services.Configure<Services>(Configuration.GetSection(nameof(Services)));
+            services.Configure<RabbitMqOptions>(Configuration.GetSection(nameof(RabbitMqOptions)));
             //services.Configure<TaxInfo>(Configuration.GetSection(nameof(TaxInfo)));
 
-            //services.AddSingleton<IAuthorizationHandler, HasScopeHandler>();
             services.AddHostedService<RabbitMqService>();
 
             services.AddHealthChecks().AddDbContextCheck<HistoryContext>(tags: new[] { "ready" });

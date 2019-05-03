@@ -4,11 +4,14 @@ using System.Threading;
 using System.Threading.Tasks;
 using HistoryService.DB;
 using HistoryService.Models;
+using HistoryService.OptionModels;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using Newtonsoft.Json;
+using Prometheus;
 using RabbitMQ.Client;
 using RabbitMQ.Client.Events;
 
@@ -19,9 +22,17 @@ namespace HistoryService.Services
         private readonly ILogger<RabbitMqService> _logger;
         private readonly IServiceProvider _serviceProvider;
         private readonly IModel _channel;
+        private readonly RabbitMqOptions _rabbitMqOptions;
+        private static readonly Counter EventsReceived = Metrics.CreateCounter("EventsReceived", "Events received in the history service",
+            new CounterConfiguration
+            {
+                LabelNames = new []{"Event"}
+            });
 
-        public RabbitMqService(ILogger<RabbitMqService> logger, IServiceProvider serviceProvider)
+
+        public RabbitMqService(ILogger<RabbitMqService> logger, IServiceProvider serviceProvider, IOptionsMonitor<RabbitMqOptions> rabbitMqOptions)
         {
+            _rabbitMqOptions = rabbitMqOptions.CurrentValue;
             _logger = logger;
             _serviceProvider = serviceProvider;
             _channel = CreateRabbitMqChannel();
@@ -33,10 +44,12 @@ namespace HistoryService.Services
 
             cancellationToken.ThrowIfCancellationRequested();
 
-            _channel.QueueDeclare("hello",false, false, false, null);
+            _channel.ExchangeDeclare(_rabbitMqOptions.ExchangeName, ExchangeType.Direct);
+            _channel.QueueDeclare(_rabbitMqOptions.QueueName, false, false, false, null);
+            _channel.QueueBind(_rabbitMqOptions.QueueName, _rabbitMqOptions.ExchangeName, _rabbitMqOptions.RoutingKey, null);
 
             var consumer = RegisterRabbitMqConsumer(_channel);
-            _channel.BasicConsume("hello", true, consumer);
+            _channel.BasicConsume(_rabbitMqOptions.QueueName, false, consumer);
 
             return Task.CompletedTask;
         }
@@ -49,20 +62,35 @@ namespace HistoryService.Services
                 var body = ea.Body;
                 var message = Encoding.UTF8.GetString(body);
                 var historyMessage = JsonConvert.DeserializeObject<HistoryMessage>(message);
-                await Handle(historyMessage);
+                try
+                {
+                    await Handle(historyMessage);
+                    channel.BasicAck(ea.DeliveryTag, false);
+                }
+                catch (Exception e)
+                {
+                    channel.BasicNack(ea.DeliveryTag, false, true);
+                }
+                
             };
             return consumer;
         }
 
         private async Task Handle(HistoryMessage historyMessage)
         {
-            Console.WriteLine(historyMessage.Event);
+            await InsertIntoDatabase(historyMessage);
+            // Counter event received
+            EventsReceived.WithLabels(historyMessage.Event).Inc();
+        }
 
+        private async Task InsertIntoDatabase(HistoryMessage historyMessage)
+        {
             using (var scope = _serviceProvider.CreateScope())
             using (var context = scope.ServiceProvider.GetRequiredService<HistoryContext>())
             {
                 var eventObj = await context.Events.FirstOrDefaultAsync(x => x.Title == historyMessage.Event) ?? new Event { Title = historyMessage.Event };
-                var history = new History { Event = eventObj, EventMessage = historyMessage.EventMessage, User = historyMessage.User };
+                var history = new History
+                    { Event = eventObj, EventMessage = historyMessage.EventMessage, User = historyMessage.User };
                 context.TaxHistories.Add(history);
                 await context.SaveChangesAsync();
             }
@@ -72,7 +100,10 @@ namespace HistoryService.Services
         {
             var factory = new ConnectionFactory
             {
-                HostName = "localhost"
+                HostName = _rabbitMqOptions.HostName,
+                UserName = _rabbitMqOptions.User,
+                Password = _rabbitMqOptions.Password,
+                VirtualHost = _rabbitMqOptions.VirtualHost
             };
             var connection = factory.CreateConnection();
             var channel = connection.CreateModel();

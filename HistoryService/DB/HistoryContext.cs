@@ -11,7 +11,15 @@ namespace HistoryService.DB
         }
         public DbSet<History> TaxHistories { get; set; }
         public DbSet<Event> Events { get; set; }
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<Event>()
+                .HasAlternateKey(a => a.Title);
+        }
     }
+
+
 
     public class History
     {
