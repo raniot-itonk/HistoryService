@@ -23,11 +23,7 @@ namespace HistoryService.Services
         private readonly IServiceProvider _serviceProvider;
         private readonly IModel _channel;
         private readonly RabbitMqOptions _rabbitMqOptions;
-        private static readonly Counter EventsReceived = Metrics.CreateCounter("EventsReceived", "Events received in the history service",
-            new CounterConfiguration
-            {
-                LabelNames = new []{"Event"}
-            });
+
 
 
         public RabbitMqService(ILogger<RabbitMqService> logger, IServiceProvider serviceProvider, IOptionsMonitor<RabbitMqOptions> rabbitMqOptions)
@@ -80,7 +76,7 @@ namespace HistoryService.Services
         {
             await InsertIntoDatabase(historyMessage);
             // Counter event received
-            EventsReceived.WithLabels(historyMessage.Event).Inc();
+            PrometheusMetrics.EventsReceived.WithLabels(historyMessage.Event).Inc();
         }
 
         private async Task InsertIntoDatabase(HistoryMessage historyMessage)

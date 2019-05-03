@@ -45,7 +45,7 @@ namespace HistoryService
         }
 
         // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.
-        public void Configure(IApplicationBuilder app, IHostingEnvironment env, HistoryContext context)
+        public async void Configure(IApplicationBuilder app, IHostingEnvironment env, HistoryContext context)
         {
             app.UseAuthentication();
             if (env.IsDevelopment())
@@ -61,6 +61,7 @@ namespace HistoryService
                 context.Database.Migrate();
             }
 
+            await PrometheusMetrics.Setup(context);
             SetupReadyAndLiveHealthChecks(app);
 
             app.UseMetricServer();
