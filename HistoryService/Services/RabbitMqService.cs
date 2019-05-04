@@ -22,6 +22,7 @@ namespace HistoryService.Services
         private readonly ILogger<RabbitMqService> _logger;
         private readonly IServiceProvider _serviceProvider;
         private readonly IModel _channel;
+        private readonly IConnection _connection;
         private readonly RabbitMqOptions _rabbitMqOptions;
 
 
@@ -31,7 +32,7 @@ namespace HistoryService.Services
             _rabbitMqOptions = rabbitMqOptions.CurrentValue;
             _logger = logger;
             _serviceProvider = serviceProvider;
-            _channel = CreateRabbitMqChannel();
+            (_channel,_connection) = CreateRabbitMqChannel();
         }
 
         protected override Task ExecuteAsync(CancellationToken cancellationToken)
@@ -39,15 +40,19 @@ namespace HistoryService.Services
             _logger.LogInformation("RabbitMq Service is starting.");
 
             cancellationToken.ThrowIfCancellationRequested();
-
-            _channel.ExchangeDeclare(_rabbitMqOptions.ExchangeName, ExchangeType.Direct);
-            _channel.QueueDeclare(_rabbitMqOptions.QueueName, false, false, false, null);
-            _channel.QueueBind(_rabbitMqOptions.QueueName, _rabbitMqOptions.ExchangeName, _rabbitMqOptions.RoutingKey, null);
+            DeclareQueueAndExchange();
 
             var consumer = RegisterRabbitMqConsumer(_channel);
             _channel.BasicConsume(_rabbitMqOptions.QueueName, false, consumer);
 
             return Task.CompletedTask;
+        }
+
+        private void DeclareQueueAndExchange()
+        {
+            _channel.ExchangeDeclare(_rabbitMqOptions.ExchangeName, ExchangeType.Direct);
+            _channel.QueueDeclare(_rabbitMqOptions.QueueName, false, false, false, null);
+            _channel.QueueBind(_rabbitMqOptions.QueueName, _rabbitMqOptions.ExchangeName, _rabbitMqOptions.RoutingKey, null);
         }
 
         private EventingBasicConsumer RegisterRabbitMqConsumer(IModel channel)
@@ -86,13 +91,13 @@ namespace HistoryService.Services
             {
                 var eventObj = await context.Events.FirstOrDefaultAsync(x => x.Title == historyMessage.Event) ?? new Event { Title = historyMessage.Event };
                 var history = new History
-                    { Event = eventObj, EventMessage = historyMessage.EventMessage, User = historyMessage.User };
+                    { Event = eventObj, EventMessage = historyMessage.EventMessage, User = historyMessage.User, Timestamp = historyMessage.Timestamp};
                 context.TaxHistories.Add(history);
                 await context.SaveChangesAsync();
             }
         }
 
-        private IModel CreateRabbitMqChannel()
+        private (IModel channel, IConnection connection) CreateRabbitMqChannel()
         {
             var factory = new ConnectionFactory
             {
@@ -102,8 +107,15 @@ namespace HistoryService.Services
                 VirtualHost = _rabbitMqOptions.VirtualHost
             };
             var connection = factory.CreateConnection();
-            var channel = connection.CreateModel();
-            return channel;
+            var channel = _connection.CreateModel();
+            return (channel, connection);
+        }
+
+        public override void Dispose()
+        {
+            _channel.Close();
+            _connection.Close();
+            base.Dispose();
         }
     }
 }

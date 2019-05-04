@@ -27,6 +27,7 @@ namespace HistoryService.DB
         public Guid User { get; set; }
         public Event Event { get; set; }
         public string EventMessage { get; set; }
+        public DateTime Timestamp { get; set; }
     }
 
     public class Event

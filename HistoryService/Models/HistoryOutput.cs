@@ -8,11 +8,13 @@ namespace HistoryService.Models
     {
         public string Event { get; set; }
         public string EventMessage { get; set; }
+        public DateTime Timestamp { get; set; }
+
 
         public static List<HistoryOutput> GetHistoryOutputList(List<History> histories)
         {
             var historyOutputs = new List<HistoryOutput>();
-            histories.ForEach(x => historyOutputs.Add(new HistoryOutput{Event = x.Event.Title, EventMessage = x.EventMessage}));
+            histories.ForEach(x => historyOutputs.Add(new HistoryOutput{Event = x.Event.Title, EventMessage = x.EventMessage, Timestamp = x.Timestamp}));
             return historyOutputs;
         }
     }
