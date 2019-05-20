@@ -22,7 +22,7 @@ namespace HistoryService.Services
         private readonly ILogger<RabbitMqService> _logger;
         private readonly IServiceProvider _serviceProvider;
         private readonly IModel _channel;
-        private readonly IConnection _connection;
+        private IConnection _connection;
         private readonly RabbitMqOptions _rabbitMqOptions;
 
 
@@ -107,7 +107,7 @@ namespace HistoryService.Services
                 VirtualHost = _rabbitMqOptions.VirtualHost
             };
             var connection = factory.CreateConnection();
-            var channel = _connection.CreateModel();
+            var channel = connection.CreateModel();
             return (channel, connection);
         }
 
