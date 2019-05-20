@@ -51,8 +51,8 @@ namespace HistoryService
             if (env.IsDevelopment())
             {
                 app.UseDeveloperExceptionPage();
-                context.Database.EnsureDeleted();
-                context.Database.EnsureCreated();
+                //context.Database.EnsureDeleted();
+                //context.Database.EnsureCreated();
             }
             else
             {
@@ -61,7 +61,7 @@ namespace HistoryService
                 context.Database.Migrate();
             }
 
-            await PrometheusMetrics.Setup(context);
+            PrometheusMetrics.Setup(context);
             SetupReadyAndLiveHealthChecks(app);
 
             app.UseMetricServer();

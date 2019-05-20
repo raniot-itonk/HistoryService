@@ -1,6 +1,5 @@
-﻿using System.Threading.Tasks;
+﻿using System.Linq;
 using HistoryService.DB;
-using Microsoft.EntityFrameworkCore;
 using Prometheus;
 
 namespace HistoryService
@@ -14,10 +13,9 @@ namespace HistoryService
             });
 
 
-
-        public static async Task Setup(HistoryContext context)
+        public static void Setup(HistoryContext context)
         {
-            var events = await context.Events.ToListAsync();
+            var events = context.Events.ToList();
             events.ForEach(x => EventsReceived.WithLabels(x.Title).Inc(0));
         }
     }
