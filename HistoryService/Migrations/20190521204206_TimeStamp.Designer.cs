@@ -4,14 +4,16 @@ using HistoryService.DB;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 namespace HistoryService.Migrations
 {
     [DbContext(typeof(HistoryContext))]
-    partial class HistoryContextModelSnapshot : ModelSnapshot
+    [Migration("20190521204206_TimeStamp")]
+    partial class TimeStamp
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
