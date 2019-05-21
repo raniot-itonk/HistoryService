@@ -27,7 +27,7 @@ namespace HistoryService.Controllers
         public async Task<ActionResult<List<HistoryOutput>>> Get(Guid user)
         {
             _logger.LogInformation("Getting history for user {user}", user);
-            var histories = await _context.TaxHistories.Include(history => history.Event).Where(history => history.User == user).ToListAsync();
+            var histories = await _context.TaxHistories.Include(history => history.Event).Where(history => history.User == user).OrderByDescending(history => history.Timestamp).Take(50).ToListAsync();
             var historyOutputList = HistoryOutput.GetHistoryOutputList(histories);
             return historyOutputList;
         }
